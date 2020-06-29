@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/silenceper/pool"
+	pl "github.com/silenceper/pool"
 )
 
 const addr string = "127.0.0.1:8080"
@@ -34,7 +34,7 @@ func client() {
 	close := func(v interface{}) error { return v.(net.Conn).Close() }
 
 	//创建一个连接池： 初始化2，最大连接5，空闲连接数是4
-	poolConfig := &pool.Config{
+	poolConfig := &pl.Config{
 		InitialCap: 2,
 		MaxIdle:    4,
 		MaxCap:     5,
@@ -43,19 +43,19 @@ func client() {
 		//连接最大空闲时间，超过该时间的连接 将会关闭，可避免空闲时连接EOF，自动失效的问题
 		IdleTimeout: 15 * time.Second,
 	}
-	p, err := pool.NewChannelPool(poolConfig)
+	p, err := pl.NewChannelPool(poolConfig)
 	if err != nil {
 		fmt.Println("err=", err)
 	}
 
 	//从连接池中取得一个连接
-	v, err := p.Get()
+	_, _ = p.Get()
 
 	//do something
 	//conn=v.(net.Conn)
 
 	//将连接放回连接池中
-	p.Put(v)
+	//p.Put(v)
 
 	//释放连接池中的所有连接
 	//p.Release()
@@ -63,6 +63,30 @@ func client() {
 	//查看当前连接中的数量
 	current := p.Len()
 	fmt.Println("len=", current)
+	_, _ = p.Get()
+	current = p.Len()
+	fmt.Println("len=", current)
+	_, _ = p.Get()
+	current = p.Len()
+	fmt.Println("len=", current)
+	_, _ = p.Get()
+	current = p.Len()
+	fmt.Println("len=", current)
+	conn, _ := p.Get()
+	current = p.Len()
+	fmt.Println("len=", current)
+	// 延迟释放一个
+	go release(p, conn)
+	// 开始阻塞
+	_, _ = p.Get()
+	current = p.Len()
+	fmt.Println("len=", current)
+
+}
+func release(p interface{}, conn interface{}) {
+	time.Sleep(2 * time.Second)
+	po := p.(pl.Pool)
+	po.Put(conn.(net.Conn))
 }
 
 func server() {
